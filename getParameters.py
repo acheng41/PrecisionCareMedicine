@@ -148,19 +148,19 @@ def gait_aligned_jnt(gait, jnt_angles_l, jnt_angles_r, jnt_pos_l, jnt_pos_r, t_t
 
 
     for strike_time_r in gait['strike_r']:
-        strike_idx_r = np.argmin(np.abs(t_trackers - t_trackers[strike_time_r]))
+        strike_idx_r = np.argmin(np.abs(t_trackers - gait['t_r'][strike_time_r]))
         joint['strike_r'].append(strike_idx_r)
 
     for off_time_r in gait['off_r']:
-        off_idx_r = np.argmin(np.abs(t_trackers - t_trackers[off_time_r]))
+        off_idx_r = np.argmin(np.abs(t_trackers - gait['t_r'][off_time_r]))
         joint['off_r'].append(off_idx_r)
 
     for strike_time_l in gait['strike_l']:
-        strike_idx_l = np.argmin(np.abs(t_trackers - t_trackers[strike_time_l]))
+        strike_idx_l = np.argmin(np.abs(t_trackers - gait['t_l'][strike_time_l]))
         joint['strike_l'].append(strike_idx_l)
 
     for off_time_l in gait['off_l']:
-        off_idx_l = np.argmin(np.abs(t_trackers - t_trackers[off_time_l]))
+        off_idx_l = np.argmin(np.abs(t_trackers - gait['t_l'][off_time_l]))
         joint['off_l'].append(off_idx_l)
 
     return joint
