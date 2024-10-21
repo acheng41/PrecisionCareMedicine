@@ -3,20 +3,25 @@ import numpy as np
 from pathlib import Path
 import os
 import scipy.io as sio
+from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import Dataset, DataLoader
 
 
 def get_gait_parameters_insole(insole_r, insole_l, t_r, t_l):
+    """
+    Get gait parameters from insole data
+    """
     gait = {'t_r': t_r, 'insole_r': insole_r, 't_l': t_l, 'insole_l': insole_l, 'area': 0.002 ** 2,
             'dim': [int(np.sqrt(insole_r.shape[1]) * 2), int(np.sqrt(insole_r.shape[1]) / 2)],
             'foot_trace_r': np.zeros(len(t_r)), 'foot_trace_l': np.zeros(len(t_l)), 'cop_x_r': np.zeros(len(t_r)),
             'cop_y_r': np.zeros(len(t_r)), 'cop_x_l': np.zeros(len(t_l)), 'cop_y_l': np.zeros(len(t_l)),
-            'cont_area_r': np.zeros(len(t_r)), 'cont_area_l': np.zeros(len(t_l))}
+            'cont_area_r': np.zeros(len(t_r)), 'cont_area_l': np.zeros(len(t_l)), 'pp_r': np.max(insole_r, axis=1),
+            'pp_l': np.max(insole_l, axis=1), 'pp_x_r': np.zeros_like(t_r), 'pp_y_r': np.zeros_like(t_r),
+            'pp_x_l': np.zeros_like(t_l), 'pp_y_l': np.zeros_like(t_l)}
 
     # Center of Pressure, Gait Trajectory, Contact Area and Trace
-
     for i in range(len(t_r)):
         frame = insole_r[i, :].reshape(gait['dim'][0], gait['dim'][1])
         frame = np.fliplr(frame)
@@ -36,6 +41,15 @@ def get_gait_parameters_insole(insole_r, insole_l, t_r, t_l):
 
         gait['cont_area_r'][i] = len(x)
 
+        # Instance peak pressure
+        x, y = np.nonzero(frame == gait['pp_r'][i])
+        if len(x) > 1:
+            gait['pp_x_r'][i] = np.mean(x)
+            gait['pp_y_r'][i] = np.mean(y)
+        else:
+            gait['pp_x_r'][i] = x
+            gait['pp_y_r'][i] = y
+
     for i in range(len(t_l)):
         frame = insole_l[i, :].reshape(gait['dim'][0], gait['dim'][1])
         frame[:gait['dim'][0] // 2, :] = np.flipud(frame[:gait['dim'][0] // 2, :])
@@ -50,6 +64,15 @@ def get_gait_parameters_insole(insole_r, insole_l, t_r, t_l):
             gait['cop_y_l'][i] = np.nan
 
         gait['cont_area_l'][i] = len(x)
+
+        # Instance peak pressure
+        x, y = np.nonzero(frame == gait['pp_l'][i])
+        if len(x) > 1:
+            gait['pp_x_l'][i] = np.mean(x)
+            gait['pp_y_l'][i] = np.mean(y)
+        else:
+            gait['pp_x_l'][i] = x
+            gait['pp_y_l'][i] = y
 
     ## Heel Strike Toe Off and Related Parameters
     thresh_r = np.min(gait['foot_trace_r']) + 0.1 * np.ptp(gait['foot_trace_r'])
@@ -105,6 +128,33 @@ def get_gait_parameters_insole(insole_r, insole_l, t_r, t_l):
 
 
 
+def gait_aligned_jnt(gait, jnt_angles_l, jnt_angles_r, jnt_pos_l, jnt_pos_r, t_trackers):
+    """
+    Align joint angles with gait cycle phases (heel strikes and toe offs).
+    """
 
+    joint = {'jnt_angles_l': jnt_angles_l, 'jnt_angles_r': jnt_angles_r,
+             'jnt_pos_l': jnt_pos_l, 'jnt_pos_r': jnt_pos_r,
+             't_trackers': t_trackers,
+             'strike_r':[], 'strike_l':[], 'off_r':[], 'off_l':[]}
+
+    for strike_time_r in gait['strike_r']:
+        strike_idx_r = np.argmin(np.abs(t_trackers - t_trackers[strike_time_r]))
+        joint['strike_r'].append(strike_idx_r)
+
+
+    for off_time_r in gait['off_r']:
+        off_idx_r = np.argmin(np.abs(t_trackers - t_trackers[off_time_r]))
+        joint['off_r'].append(off_idx_r)
+
+    for strike_time_l in gait['strike_l']:
+        strike_idx_l = np.argmin(np.abs(t_trackers - t_trackers[strike_time_l]))
+        joint['strike_l'].append(strike_idx_l)
+
+    for off_time_l in gait['off_l']:
+        off_idx_l = np.argmin(np.abs(t_trackers - t_trackers[off_time_l]))
+        joint['off_l'].append(off_idx_l)
+
+    return joint
 
 
