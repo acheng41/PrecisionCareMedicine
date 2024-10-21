@@ -133,15 +133,23 @@ def gait_aligned_jnt(gait, jnt_angles_l, jnt_angles_r, jnt_pos_l, jnt_pos_r, t_t
     Align joint angles with gait cycle phases (heel strikes and toe offs).
     """
 
-    joint = {'jnt_angles_l': jnt_angles_l, 'jnt_angles_r': jnt_angles_r,
-             'jnt_pos_l': jnt_pos_l, 'jnt_pos_r': jnt_pos_r,
+    joint = {'jnt_angles_l': np.zeros((np.size(jnt_angles_l),3,3)),
+             'jnt_angles_r': np.zeros((np.size(jnt_angles_r), 3, 3)),
+             'jnt_pos_l': np.zeros((np.size(jnt_pos_l),4,3)),
+             'jnt_pos_r': np.zeros((np.size(jnt_pos_r), 4,3)),
              't_trackers': t_trackers,
              'strike_r':[], 'strike_l':[], 'off_r':[], 'off_l':[]}
+
+    for i in range(np.size(jnt_angles_l)):
+        joint['jnt_angles_l'][i,:,:] =  jnt_angles_l[i][0][:,:]
+        joint['jnt_angles_r'][i, :, :] = jnt_angles_r[i][0][:,:]
+        joint['jnt_pos_l'][i, :, :] = jnt_pos_l[i][0][:,:]
+        joint['jnt_pos_r'][i, :, :] = jnt_pos_r[i][0][:,:]
+
 
     for strike_time_r in gait['strike_r']:
         strike_idx_r = np.argmin(np.abs(t_trackers - t_trackers[strike_time_r]))
         joint['strike_r'].append(strike_idx_r)
-
 
     for off_time_r in gait['off_r']:
         off_idx_r = np.argmin(np.abs(t_trackers - t_trackers[off_time_r]))
