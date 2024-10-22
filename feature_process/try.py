@@ -14,7 +14,7 @@ from getParameters import gait_aligned_jnt
 from visualization import plot_cop_and_gait
 from visualization import plot_heatmap
 
-data = sio.loadmat('data/gait_recording_080624_walk.mat')
+data = sio.loadmat('../data/gait_recording_080624_walk.mat')
 insoleAll_l = data['insoleAll_l'].astype(np.float64)
 insoleAll_r = data['insoleAll_r'].astype(np.float64)
 t_insole_l = data['t_insole_l'].astype(np.float64)
