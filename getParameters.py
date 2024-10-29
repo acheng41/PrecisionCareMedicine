@@ -6,6 +6,7 @@ import scipy.io as sio
 from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 import torch
+from pre import resample_angle
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -15,21 +16,24 @@ def get_gait_parameters_insole(insole_r, insole_l, t_r, t_l):
     """
     gait = {'t_r': t_r, 'insole_r': insole_r, 't_l': t_l, 'insole_l': insole_l, 'area': 0.002 ** 2,
             'dim': [int(np.sqrt(insole_r.shape[1]) * 2), int(np.sqrt(insole_r.shape[1]) / 2)],
-            'foot_trace_r': np.zeros(len(t_r)), 'foot_trace_l': np.zeros(len(t_l)), 'cop_x_r': np.zeros(len(t_r)),
-            'cop_y_r': np.zeros(len(t_r)), 'cop_x_l': np.zeros(len(t_l)), 'cop_y_l': np.zeros(len(t_l)),
-            'cont_area_r': np.zeros(len(t_r)), 'cont_area_l': np.zeros(len(t_l)), 'pp_r': np.max(insole_r, axis=1),
-            'pp_l': np.max(insole_l, axis=1), 'pp_x_r': np.zeros_like(t_r), 'pp_y_r': np.zeros_like(t_r),
-            'pp_x_l': np.zeros_like(t_l), 'pp_y_l': np.zeros_like(t_l)}
+            'foot_trace_r': np.zeros(len(t_r)), 'foot_trace_l': np.zeros(len(t_l)),
+            'cop_x_r': np.zeros(len(t_r)), 'cop_y_r': np.zeros(len(t_r)),
+            'cop_x_l': np.zeros(len(t_l)), 'cop_y_l': np.zeros(len(t_l)),
+            'cont_area_r': np.zeros(len(t_r)), 'cont_area_l': np.zeros(len(t_l)),
+            'pp_r': np.max(insole_r, axis=1), 'pp_l': np.max(insole_l, axis=1),
+            'pp_x_r': np.zeros_like(t_r), 'pp_y_r': np.zeros_like(t_r),
+            'pp_x_l': np.zeros_like(t_l), 'pp_y_l': np.zeros_like(t_l),
+            }
 
     # Center of Pressure, Gait Trajectory, Contact Area and Trace
     for i in range(len(t_r)):
-        frame = insole_r[i, :].reshape(gait['dim'][0], gait['dim'][1])
-        frame = np.fliplr(frame)
+        frame = insole_r[i, :].reshape(gait['dim'][0], gait['dim'][1], order='F')
+        # frame = np.fliplr(frame)
         frame[:gait['dim'][0] // 2, :] = np.flipud(frame[:gait['dim'][0] // 2, :])
-        # correspondence between the sensor and the actual position??????
 
         gait['foot_trace_r'][i] = np.mean(frame)
         x, y = np.where(frame > 0)
+
         # COP
         sum_frame_r = np.sum(frame[x, y])
         if sum_frame_r > 0:
@@ -51,8 +55,8 @@ def get_gait_parameters_insole(insole_r, insole_l, t_r, t_l):
             gait['pp_y_r'][i] = y
 
     for i in range(len(t_l)):
-        frame = insole_l[i, :].reshape(gait['dim'][0], gait['dim'][1])
-        frame[:gait['dim'][0] // 2, :] = np.flipud(frame[:gait['dim'][0] // 2, :])
+        frame = insole_l[i, :].reshape(gait['dim'][0], gait['dim'][1], order='F')
+        # frame[:gait['dim'][0] // 2, :] = np.flipud(frame[:gait['dim'][0] // 2, :])
         gait['foot_trace_l'][i] = np.mean(frame)
         x, y = np.where(frame > 0)
         sum_frame_l = np.sum(frame[x, y])
@@ -85,14 +89,14 @@ def get_gait_parameters_insole(insole_r, insole_l, t_r, t_l):
     # Right foot strikes and offs
     for i in range(1, len(t_r) - 1):
         if gait['foot_trace_r'][i] >= thresh_r > gait['foot_trace_r'][i - 1]:
-            gait['strike_r'].append(i - 1)
+            gait['strike_r'].append(i)
         if gait['foot_trace_r'][i] >= thresh_r > gait['foot_trace_r'][i + 1]:
             gait['off_r'].append(i + 1)
 
     # Left foot strikes and offs
     for i in range(1, len(t_l) - 1):
         if gait['foot_trace_l'][i] >= thresh_l > gait['foot_trace_l'][i - 1]:
-            gait['strike_l'].append(i - 1)
+            gait['strike_l'].append(i)
         if gait['foot_trace_l'][i] >= thresh_l > gait['foot_trace_l'][i + 1]:
             gait['off_l'].append(i + 1)
 
@@ -111,7 +115,6 @@ def get_gait_parameters_insole(insole_r, insole_l, t_r, t_l):
     # Cadence
     gait['cadence'] = min(len(gait['cycle_dur_r']), len(gait['cycle_dur_l'])) / min(np.sum(gait['cycle_dur_r']),
                                                                                     np.sum(gait['cycle_dur_l'])) * 60
-
     # Stance and swing phases
     gait['stance_r'] = (t_r[gait['off_r']] - t_r[gait['strike_r'][:-1]]) / gait['cycle_dur_r'] * 100
     gait['stance_l'] = (t_l[gait['off_l']] - t_l[gait['strike_l'][:-1]]) / gait['cycle_dur_l'] * 100
@@ -133,36 +136,80 @@ def gait_aligned_jnt(gait, jnt_angles_l, jnt_angles_r, jnt_pos_l, jnt_pos_r, t_t
     Align joint angles with gait cycle phases (heel strikes and toe offs).
     """
 
-    joint = {'jnt_angles_l': np.zeros((np.size(jnt_angles_l),3,3)),
-             'jnt_angles_r': np.zeros((np.size(jnt_angles_r), 3, 3)),
-             'jnt_pos_l': np.zeros((np.size(jnt_pos_l),4,3)),
-             'jnt_pos_r': np.zeros((np.size(jnt_pos_r), 4,3)),
+    joint = {'jnt_angles_all_l': np.zeros((np.size(jnt_angles_l),3,3)),
+             'jnt_angles_all_r': np.zeros((np.size(jnt_angles_r), 3,3)),
+             'jnt_pos_all_l': np.zeros((np.size(jnt_pos_l),4,3)),
+             'jnt_pos_all_r': np.zeros((np.size(jnt_pos_r), 4,3)),
+             'angles_l':{'ankle':[],'knee':[],'hip':[]},
+             'angles_r':{'ankle':[],'knee':[],'hip':[]},
+             'resampled_angles_l':{'ankle':[],'knee':[],'hip':[]},
+             'resampled_angles_r':{'ankle':[],'knee':[],'hip':[]},
              't_trackers': t_trackers,
              'strike_r':[], 'strike_l':[], 'off_r':[], 'off_l':[]}
 
+    ankle = []
+    knee = []
+    hip = []
     for i in range(np.size(jnt_angles_l)):
-        joint['jnt_angles_l'][i,:,:] =  jnt_angles_l[i][0][:,:]
-        joint['jnt_angles_r'][i, :, :] = jnt_angles_r[i][0][:,:]
-        joint['jnt_pos_l'][i, :, :] = jnt_pos_l[i][0][:,:]
-        joint['jnt_pos_r'][i, :, :] = jnt_pos_r[i][0][:,:]
+        ankle.append(jnt_angles_l[i][0][2, :])
+        knee.append(jnt_angles_l[i][0][1, :])
+        hip.append(jnt_angles_l[i][0][0, :])
 
+    joint['angles_l']['ankle'] = np.vstack(ankle)
+    joint['angles_l']['knee'] = np.vstack(knee)
+    joint['angles_l']['hip'] = np.vstack(hip)
 
+    ankle = []
+    knee = []
+    hip = []
+    for i in range(np.size(jnt_angles_r)):
+        ankle.append(jnt_angles_r[i][0][2, :])
+        knee.append(jnt_angles_r[i][0][1, :])
+        hip.append(jnt_angles_r[i][0][0, :])
+
+    joint['angles_r']['ankle'] = np.vstack(ankle)
+    joint['angles_r']['knee'] = np.vstack(knee)
+    joint['angles_r']['hip'] = np.vstack(hip)
+
+    # align with pressure
     for strike_time_r in gait['strike_r']:
-        strike_idx_r = np.argmin(np.abs(t_trackers - t_trackers[strike_time_r]))
+        strike_idx_r = np.argmin(np.abs(t_trackers - gait['t_r'][strike_time_r]))
         joint['strike_r'].append(strike_idx_r)
 
     for off_time_r in gait['off_r']:
-        off_idx_r = np.argmin(np.abs(t_trackers - t_trackers[off_time_r]))
+        off_idx_r = np.argmin(np.abs(t_trackers - gait['t_r'][off_time_r]))
         joint['off_r'].append(off_idx_r)
 
     for strike_time_l in gait['strike_l']:
-        strike_idx_l = np.argmin(np.abs(t_trackers - t_trackers[strike_time_l]))
+        strike_idx_l = np.argmin(np.abs(t_trackers - gait['t_l'][strike_time_l]))
         joint['strike_l'].append(strike_idx_l)
 
     for off_time_l in gait['off_l']:
-        off_idx_l = np.argmin(np.abs(t_trackers - t_trackers[off_time_l]))
+        off_idx_l = np.argmin(np.abs(t_trackers - gait['t_l'][off_time_l]))
         joint['off_l'].append(off_idx_l)
 
+
+    # resample to 101 points for each step
+    for i in range(len(joint['strike_l']) - 1):
+        start_idx, end_idx = joint['strike_l'][i], joint['strike_l'][i + 1]
+        joint['resampled_angles_l']['ankle'].append(resample_angle(joint['angles_l']['ankle'][start_idx:end_idx,:]))
+        joint['resampled_angles_l']['knee'].append(resample_angle(joint['angles_l']['knee'][start_idx:end_idx,:]))
+        joint['resampled_angles_l']['hip'].append(resample_angle(joint['angles_l']['hip'][start_idx:end_idx, :]))
+    joint['resampled_angles_l']['ankle'] = np.vstack(joint['resampled_angles_l']['ankle'])
+    joint['resampled_angles_l']['knee'] = np.vstack(joint['resampled_angles_l']['knee'])
+    joint['resampled_angles_l']['hip'] = np.vstack(joint['resampled_angles_l']['hip'])
+
+    # resample to 101 points for each step
+    for i in range(len(joint['strike_r']) - 1):
+        start_idx, end_idx = joint['strike_r'][i], joint['strike_r'][i + 1]
+        joint['resampled_angles_r']['ankle'].append(resample_angle(joint['angles_r']['ankle'][start_idx:end_idx,:]))
+        joint['resampled_angles_r']['knee'].append(resample_angle(joint['angles_r']['knee'][start_idx:end_idx,:]))
+        joint['resampled_angles_r']['hip'].append(resample_angle(joint['angles_r']['hip'][start_idx:end_idx, :]))
+    joint['resampled_angles_r']['ankle'] = np.vstack(joint['resampled_angles_r']['ankle'])
+    joint['resampled_angles_r']['knee'] = np.vstack(joint['resampled_angles_r']['knee'])
+    joint['resampled_angles_r']['hip'] = np.vstack(joint['resampled_angles_r']['hip'])
+
     return joint
+
 
 
