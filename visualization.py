@@ -1,8 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-
-
+from scipy.interpolate import interp1d
 
 def plot_cop_and_gait(gait):
     # Visualize COP and phase division
@@ -42,15 +41,15 @@ def plot_cop_and_gait(gait):
     def update(frame):
         if frame < len(gait['strike_r']) - 1:
             start_r = gait['strike_r'][frame]
-            end_r = gait['strike_r'][frame+1]
+            end_r = gait['strike_r'][frame + 1]
             stance_r = gait['off_r'][frame]
 
-            line_r.set_data(gait['cop_y_r'][start_r:stance_r+1], gait['cop_x_r'][start_r:stance_r+1])
+            line_r.set_data(gait['cop_y_r'][start_r:stance_r], gait['cop_x_r'][start_r:stance_r])
 
-            scatter_r.set_offsets(np.c_[gait['cop_y_r'][start_r:end_r+1], gait['cop_x_r'][start_r:end_r+1]])
+            scatter_r.set_offsets(np.c_[gait['cop_y_r'][start_r:end_r], gait['cop_x_r'][start_r:end_r]])
             strike_r.set_offsets(
                 np.c_[gait['cop_y_r'][gait['strike_r'][frame]], gait['cop_x_r'][gait['strike_r'][frame]]])
-            off_r.set_offsets(np.c_[gait['cop_y_r'][gait['off_r'][frame]], gait['cop_x_r'][gait['off_r'][frame]]])
+            off_r.set_offsets(np.c_[gait['cop_y_r'][gait['off_r'][frame]-1], gait['cop_x_r'][gait['off_r'][frame]-1]])
 
         if frame < len(gait['strike_l']) - 1:
             start_l = gait['strike_l'][frame]
@@ -58,16 +57,16 @@ def plot_cop_and_gait(gait):
             stance_l = gait['off_l'][frame]
 
 
-            line_l.set_data(gait['cop_y_l'][start_l:stance_l + 1], gait['cop_x_l'][start_l:stance_l + 1])
+            line_l.set_data(gait['cop_y_l'][start_l:stance_l], gait['cop_x_l'][start_l:stance_l])
 
-            scatter_l.set_offsets(np.c_[gait['cop_y_l'][start_l:end_l + 1], gait['cop_x_l'][start_l:end_l + 1]])
+            scatter_l.set_offsets(np.c_[gait['cop_y_l'][start_l:end_l], gait['cop_x_l'][start_l:end_l ]])
             strike_l.set_offsets(
                 np.c_[gait['cop_y_l'][gait['strike_l'][frame]], gait['cop_x_l'][gait['strike_l'][frame]]])
-            off_l.set_offsets(np.c_[gait['cop_y_l'][gait['off_l'][frame]], gait['cop_x_l'][gait['off_l'][frame]]])
+            off_l.set_offsets(np.c_[gait['cop_y_l'][gait['off_l'][frame]-1], gait['cop_x_l'][gait['off_l'][frame]-1]])
 
         return scatter_r, scatter_l, strike_r, off_r, strike_l, off_l, line_r, line_l
 
-    ani = FuncAnimation(fig, update, frames=max(len(gait['strike_r']), len(gait['strike_l'])), blit=True, repeat=True, interval=500)
+    ani = FuncAnimation(fig, update, frames=max(len(gait['strike_r']), len(gait['strike_l'])), blit=True, repeat=True, interval=1000)
 
     plt.tight_layout()
     plt.show()
@@ -75,7 +74,6 @@ def plot_cop_and_gait(gait):
 def plot_heatmap(insoleAll_r, insoleAll_l):
     ## based on the correspondence between the sensor and the actual position
     dim = [int(np.sqrt(insoleAll_r.shape[1]) * 2), int(np.sqrt(insoleAll_r.shape[1]) / 2)]
-    # dim = [int(np.sqrt(insoleAll_r.shape[1]) / 2), int(np.sqrt(insoleAll_r.shape[1]) * 2)]
 
     fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -89,18 +87,53 @@ def plot_heatmap(insoleAll_r, insoleAll_l):
 
     def update(frame):
         ## based on the correspondence between the sensor and the actual position
-        insole_l = insoleAll_l[frame, :].reshape(dim)
-        # insole_l[:32, :] = np.flipud(insole_l[:32, :])
-        insole_r = insoleAll_r[frame, :].reshape(dim)
-        # insole_r = np.fliplr(insole_r)
+        insole_l = insoleAll_l[frame, :].reshape(dim, order='F')
+        insole_l[:32, :] = np.flipud(insole_l[:32, :])
+        insole_r = insoleAll_r[frame, :].reshape(dim, order='F')
         # insole_r[:32, :] = np.flipud(insole_r[:32, :])
-        # insole_r[:, :32] = np.fliplr(insole_r[:, :32])
 
         img_l.set_array(insole_l)
         img_r.set_array(insole_r)
 
         return img_l, img_r
 
-
     ani = FuncAnimation(fig, update, frames=max(len(insoleAll_l), len(insoleAll_r)), blit=True, repeat=True, interval=10)
     plt.show()
+
+def plot_heatmap_with_COP(gait):
+    insoleAll_r = gait['insole_r']
+    insoleAll_l = gait['insole_l']
+
+    dim = [int(np.sqrt(insoleAll_r.shape[1]) * 2), int(np.sqrt(insoleAll_r.shape[1]) / 2)]
+
+    fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(12, 6))
+
+    img_l = ax_l.imshow(np.zeros(dim), vmin=np.min(insoleAll_l), vmax=np.max(insoleAll_l),  interpolation='nearest')
+    img_r = ax_r.imshow(np.zeros(dim), vmin=np.min(insoleAll_r), vmax=np.max(insoleAll_r), interpolation='nearest')
+
+    ax_l.set_title("Left Heatmap")
+    ax_r.set_title("Right Heatmap")
+    plt.colorbar(img_l, ax=ax_l)
+    plt.colorbar(img_r, ax=ax_r)
+
+    cop_marker_l = ax_l.scatter([], [], color='red', label="COP")
+    cop_marker_r = ax_r.scatter([], [], color='red', label="COP")
+
+    def update(frame):
+        ## based on the correspondence between the sensor and the actual position
+        insole_l = insoleAll_l[frame, :].reshape(dim, order='F')
+        insole_l[:32, :] = np.flipud(insole_l[:32, :])
+        insole_r = insoleAll_r[frame, :].reshape(dim, order='F')
+        # insole_r = np.fliplr(insole_r)
+        # insole_r[:32, :] = np.flipud(insole_r[:32, :])
+
+        img_l.set_array(insole_l)
+        img_r.set_array(insole_r)
+
+        cop_marker_l.set_offsets(np.c_[gait['cop_y_l'][frame], gait['cop_x_l'][frame]])
+        cop_marker_r.set_offsets(np.c_[gait['cop_y_r'][frame], gait['cop_x_r'][frame]])
+        return img_l, img_r, cop_marker_l, cop_marker_r
+
+    ani = FuncAnimation(fig, update, frames=len(insoleAll_l), blit=True, repeat=True, interval=50)
+    plt.show()
+
