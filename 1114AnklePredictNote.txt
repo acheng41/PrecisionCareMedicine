@@ -1,6 +1,7 @@
 Use RF, LR, KNN to predict left ankle angles and analyze important features.
 
 Model: RF, LR, KNN (k=5)
+[Several papers use KNN and ANN (with open source code) to predict ankle and knee angle]
 
 Features: (40000*14)
 'foot_trace_r', 'cop_x_r', 'cop_y_r', 'cont_area_r', 'pp_r', 'pp_x_r', 'pp_y_r', 'foot_trace_l', 'cop_x_l', 'cop_y_l', 'cont_area_l', 'pp_l', 'pp_x_l', 'pp_y_l'
