@@ -1,0 +1,18 @@
+Use RF, LR, KNN to predict left ankle angles and analyze important features.
+
+Model: RF, LR, KNN (k=5)
+
+Features: (40000*14)
+'foot_trace_r', 'cop_x_r', 'cop_y_r', 'cont_area_r', 'pp_r', 'pp_x_r', 'pp_y_r', 'foot_trace_l', 'cop_x_l', 'cop_y_l', 'cont_area_l', 'pp_l', 'pp_x_l', 'pp_y_l'
+
+Label: left ankle angle(40000*3) 
+
+Result: feature mean pressure most important
+RF perform better, but the overall accuracy is not very good
+_____________________________________________________________________________________
+
+Comparing before and after filtering, there is no difference. It seems that the data has been preprocessed by filtering (but don't know the details).
+
+Not sure whether to normalize features such as pressure. It can reduce the deviation of each step, but if to analyze the difference between each step or what may not do that.
+
+Use data without normalization, extract 400 steps of 4 sets of normal walking data, and normalize each gait cycle data to 100 data points.
