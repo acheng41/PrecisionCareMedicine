@@ -189,7 +189,7 @@ def gait_aligned_jnt(gait, jnt_angles_l, jnt_angles_r, jnt_pos_l, jnt_pos_r, t_t
         joint['off_l'].append(off_idx_l)
 
 
-    # resample to 101 points for each step
+    # resample to 100 points for each step
     for i in range(len(joint['strike_l']) - 1):
         start_idx, end_idx = joint['strike_l'][i], joint['strike_l'][i + 1]
         joint['resampled_angles_l']['ankle'].append(resample_angle(joint['angles_l']['ankle'][start_idx:end_idx,:]))
@@ -199,7 +199,7 @@ def gait_aligned_jnt(gait, jnt_angles_l, jnt_angles_r, jnt_pos_l, jnt_pos_r, t_t
     joint['resampled_angles_l']['knee'] = np.vstack(joint['resampled_angles_l']['knee'])
     joint['resampled_angles_l']['hip'] = np.vstack(joint['resampled_angles_l']['hip'])
 
-    # resample to 101 points for each step
+    # resample to 100 points for each step
     for i in range(len(joint['strike_r']) - 1):
         start_idx, end_idx = joint['strike_r'][i], joint['strike_r'][i + 1]
         joint['resampled_angles_r']['ankle'].append(resample_angle(joint['angles_r']['ankle'][start_idx:end_idx,:]))
