@@ -18,10 +18,9 @@ from DataManager import DataManager
 
 #%%
 DM = DataManager()
-available_ID_list = DM.ID_list
+available_ID_list = DM.ID_list #Get all available list
+available_ID_list = ['GAIT102424-01', 'GAIT102424-02'] # or type in manually
 
-# available_ID_list = ['GAIT102324-01', 'GAIT102424-01', 'GAIT102424-02']
-available_ID_list = ['GAIT102424-01', 'GAIT102424-02']
 valid_files = DM.get_valid_data_file_dict(available_ID_list)
 
 # Load Feature Names
@@ -34,6 +33,8 @@ ankle_all = []
 
 
 for file in valid_files:
+    FM_all = []
+    ankle_all = []
     data = sio.loadmat(file['path'])
     insoleAll_l = data['insoleAll_l'].astype(np.float64)
     insoleAll_r = data['insoleAll_r'].astype(np.float64)
@@ -69,9 +70,15 @@ for file in valid_files:
         FM_all.append(FM[i, :])
         ankle_all.append(angle[i, :])
 
-feature_matrix = np.array(FM_all)
-ankle_matrix = np.array(ankle_all)
-
+    feature_matrix = np.array(FM_all)
+    ankle_matrix = np.array(ankle_all)
+    
+    trail_num = file['meta_data']['Trial'][0]
+    feature_path = file['path'].with_name(file['path'].stem + '_feature.npy')
+    ankle_angle_path = file['path'].with_name(file['path'].stem + '_ankle_angle.npy')
+    
+    np.save(feature_path, feature_matrix)
+    np.save(ankle_angle_path, ankle_matrix)
 
 #%% predict ankle angle
 X_train, X_test, y_train, y_test = train_test_split(feature_matrix, ankle_matrix, test_size=0.2, random_state=42)

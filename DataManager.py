@@ -67,6 +67,10 @@ class DataManager:
                 if 'meta_data' in file:
                     continue
                 
+                # Skip Feature Data
+                if '.npy' in file:
+                    continue
+                
                 data_dict = {}
                 
                 # First check meta data if this is a valid dataset for use
