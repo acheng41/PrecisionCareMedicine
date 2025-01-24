@@ -113,17 +113,18 @@ end
 
 % plot contact area
 figure()
+set(gcf,'color','white');
 subplot(1,2,1)
 plot(t_l,gait.cont_area_l)
 title("Left Insole Contact area")
 xlabel("Time (s)")
-ylabel("gait.area (pixels)")
+ylabel("Area (pixels)")
 
 subplot(1,2,2)
 plot(t_r,gait.cont_area_r)
 title("Right Insole Contact area")
 xlabel("Time (s)")
-ylabel("gait.area (pixels)")
+ylabel("Area (pixels)")
 
 %% Heel Strike Toe Off and Related Parameters
 % get initial contact and foot off
@@ -181,6 +182,7 @@ gait.swing_l = 100 - gait.stance_l;
 gait.asym = (mean(gait.swing_l) - mean(gait.swing_r)) / (0.5 * (mean(gait.swing_l) + mean(gait.swing_r))) * 100;
 
 figure()
+set(gcf,'color','white');
 subplot(1,2,1)
 plot(t_l, gait.foot_trace_l)
 hold on
@@ -191,7 +193,7 @@ hold off
 title("Time Trace of Left Foot")
 xlabel("Frame")
 ylabel("Intensity")
-legend("Foot Trace","Initial Contact","Foot gait.off","Threshold")
+legend("Foot Trace","Initial Contact","Foot off","Threshold")
 
 subplot(1,2,2)
 plot(t_r, gait.foot_trace_r)
@@ -203,7 +205,7 @@ hold off
 title("Time Trace of Right Foot")
 xlabel("Time (s)")
 ylabel("Intensity")
-legend("Foot Trace","Initial Contact","Foot gait.off","Threshold")
+legend("Foot Trace","Initial Contact","Foot off","Threshold")
 
 % plot gait trajectory during stance
 range_img_r = range(insole_r,1);
@@ -216,6 +218,7 @@ range_img_l = reshape(range_img_l,gait.dim(1),gait.dim(2));
 range_img_l(1:gait.dim(1) / 2,:) = flipud(range_img_l(1:gait.dim(1) / 2,:));
 
 figure()
+set(gcf,'color','white');
 subplot(1,2,1)
 imagesc(range_img_l)
 hold on
