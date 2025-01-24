@@ -1,3 +1,4 @@
+# %%
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -48,3 +49,5 @@ plt.plot(x[marker_indices], y[marker_indices], "gx", label="Toe Offs")
 # Display the plot
 plt.legend()
 plt.show()
+
+# %%
