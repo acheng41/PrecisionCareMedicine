@@ -8,7 +8,7 @@ clear
 close all
 
 %% Load Joint Angles and Positions
-load data\gait_recording_080624_walk.mat
+load data\080624\gait_recording_080624_walk.mat
 color_r = 'red';
 color_l = 'blue';
 
