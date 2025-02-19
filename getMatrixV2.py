@@ -69,10 +69,13 @@ def resample_data(data):
     return resampled_data
 
 
-def get_gait_parameters_insole2(insole_r, insole_l, t_r, t_l, h_th_r, t_th_r, h_th_l, t_th_l):
+def get_gait_parameters_insole2(insole_r, insole_l, t_r, t_l, thresholds):
     """
     Get gait parameters from insole data
     """
+
+    [h_th_r, t_th_r, h_th_l, t_th_l, strike_th_l, strike_th_r] = thresholds
+
     gait = {'foot_trace_r': np.zeros(len(t_r)), 'foot_trace_l': np.zeros(len(t_l)),
             'dim': [int(np.sqrt(insole_r.shape[1]) * 2), int(np.sqrt(insole_r.shape[1]) / 2)],
             'cop_x_r': np.zeros(len(t_r)),
@@ -107,42 +110,61 @@ def get_gait_parameters_insole2(insole_r, insole_l, t_r, t_l, h_th_r, t_th_r, h_
 
     # Gait events
     hc_indices, to_indices = gait_segmentation(insole_r, h_th_r, t_th_r)
-    gait['strike_r'] = hc_indices
-    gait['off_r'] = to_indices
+    strike_r = hc_indices
+    off_r = to_indices
 
     hc_indices, to_indices = gait_segmentation(insole_l, h_th_l, t_th_l)
-    gait['strike_l'] = hc_indices
-    gait['off_l'] = to_indices
+    strike_l = hc_indices
+    off_l = to_indices
 
     # Isolate complete gait cycles
-    gait['off_r'] = [off for off in gait['off_r'] if gait['strike_r'][0] < off <= gait['strike_r'][-1]]
-    gait['off_l'] = [off for off in gait['off_l'] if gait['strike_l'][0] < off <= gait['strike_l'][-1]]
+    gait['step_r'] = []
+    gait['step_l'] = []
+    for i in range(len(strike_r) - 1):
+        start, end = strike_r[i], strike_r[i + 1]
+        if t_r[end] - t_r[start] > strike_th_r:
+            continue
+        step_off = [o for o in off_r if start <= o <= end]
+        if len(step_off) == 1:
+            gait['step_r'].append({'strike': [start, end], 'off': step_off})
+
+    for i in range(len(strike_l) - 1):
+        start, end = strike_l[i], strike_l[i + 1]
+        if t_l[end] - t_l[start] > strike_th_l:
+            continue
+        step_off = [o for o in off_l if start <= o <= end]
+        if len(step_off) == 1:
+            gait['step_l'].append({'strike': [start, end], 'off': step_off})
 
     # Cycle duration
-    gait['cycle_dur_l'] = np.zeros((len(gait['strike_l']) - 1))
-    gait['swing_dur_l']= np.zeros((len(gait['strike_l']) - 1))
-    gait['stance_dur_l'] = np.zeros((len(gait['strike_l']) - 1))
+    gait['cycle_dur_l'] = np.zeros((len(gait['step_l'])))
+    gait['swing_dur_l']= np.zeros((len(gait['step_l'])))
+    gait['stance_dur_l'] = np.zeros((len(gait['step_l'])))
     gait['cadence_l'] = np.zeros(len(gait['cycle_dur_l']))
-    gait['cycle_dur_r'] = np.zeros((len(gait['strike_r']) - 1))
-    gait['swing_dur_r']= np.zeros((len(gait['strike_r']) - 1))
-    gait['stance_dur_r'] = np.zeros((len(gait['strike_r']) - 1))
+    gait['cycle_dur_r'] = np.zeros((len(gait['step_r'])))
+    gait['swing_dur_r']= np.zeros((len(gait['step_r'])))
+    gait['stance_dur_r'] = np.zeros((len(gait['step_r'])))
     gait['cadence_r'] = np.zeros(len(gait['cycle_dur_r']))
 
-    for i in range((len(gait['strike_l']) - 1)):
-        gait['cycle_dur_l'][i] = t_l[gait['strike_l'][i + 1]] - t_l[gait['strike_l'][i]]
-        gait['stance_dur_l'][i] = t_l[gait['off_l'][i]] - t_l[gait['strike_l'][i]]
+    for i in range((len(gait['step_l']))):
+        start, end = gait['step_l'][i]['strike']
+        off = gait['step_l'][i]['off']
+        gait['cycle_dur_l'][i] = t_l[end] - t_l[start]
+        gait['stance_dur_l'][i] = t_l[off] - t_l[start]
     gait['swing_dur_l'] = gait['cycle_dur_l'] - gait['stance_dur_l']
     gait['stance_phase_l'] = gait['stance_dur_l']/gait['cycle_dur_l']
     gait['swing_phase_l'] = gait['swing_dur_l'] / gait['cycle_dur_l']
     gait['cadence_l'] = 60/gait['cycle_dur_l']
 
-    for i in range((len(gait['strike_r']) - 1)):
-        gait['cycle_dur_r'][i] = t_r[gait['strike_r'][i + 1]] - t_r[gait['strike_r'][i]]
-        gait['stance_dur_r'][i] = t_r[gait['off_r'][i]] - t_r[gait['strike_r'][i]]
+    for i in range((len(gait['step_r']))):
+        start, end = gait['step_r'][i]['strike']
+        off = gait['step_r'][i]['off']
+        gait['cycle_dur_r'][i] = t_r[end] - t_r[start]
+        gait['stance_dur_r'][i] = t_r[off] - t_r[start]
     gait['swing_dur_r'] = gait['cycle_dur_r'] - gait['stance_dur_r']
-    gait['stance_phase_r'] = gait['stance_dur_r'] / gait['cycle_dur_r']
+    gait['stance_phase_r'] = gait['stance_dur_r']/gait['cycle_dur_r']
     gait['swing_phase_r'] = gait['swing_dur_r'] / gait['cycle_dur_r']
-    gait['cadence_l'] = 60/gait['cycle_dur_l']
+    gait['cadence_r'] = 60/gait['cycle_dur_r']
 
     gait['swing_asym'] = np.abs((np.mean(gait['swing_phase_l']) - np.mean(gait['swing_phase_r']))) / (
             0.5 * (np.mean(gait['swing_phase_l']) + np.mean(gait['swing_phase_r'])))
