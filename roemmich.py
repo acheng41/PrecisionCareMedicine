@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 insole_data_path = Path("data/112024")
 insole_data = sio.loadmat(insole_data_path / "gait_recording_112024_walk2.mat")
 
-vicon_data_path = Path("data/Pilot_Data/Session_two")
+vicon_data_path = Path("data/Pilot_Data/converted/Session_two")
 vicon_events_data = sio.loadmat(
     vicon_data_path / "Faster_kinematics_events_converted.mat", squeeze_me=True
 )

@@ -2,7 +2,7 @@
 files = dir('*.mat');  % Get all .mat files in the current directory
 
 % Loop directly over the files
-for file = files'
+for file = files
     disp(file.name);  % Display the name of each .mat file
     convertTablesToStruct(file.name)
 end
