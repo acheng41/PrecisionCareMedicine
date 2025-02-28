@@ -208,7 +208,10 @@ def plot_heatmap_with_COP(gait):
     plt.show()
 
 
-def plot_heatmap_spatial(insole_spatial_r, insole_spatial_l):
+def plot_heatmap_spatial(
+    insole_spatial_l: np.ndarray,
+    insole_spatial_r: np.ndarray,
+) -> None:
     fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(12, 6))
 
     img_l = ax_l.imshow(
