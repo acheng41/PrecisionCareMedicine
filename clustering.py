@@ -18,9 +18,6 @@ from visualization import plot_heatmap_spatial
 insole_data_path = Path("data/080624")
 insole_data = sio.loadmat(insole_data_path / "gait_recording_080624_walk4.mat")
 
-# insole_data_path = Path("data/022425")
-# insole_data = sio.loadmat(insole_data_path / "gait_recording_022425_walk2.mat")
-
 
 def convert_insole_spatial(
     insoleAll_l: np.ndarray, insoleAll_r: np.ndarray
@@ -44,7 +41,6 @@ def convert_insole_spatial(
 insole_spatial_l, insole_spatial_r = convert_insole_spatial(
     insole_data["insoleAll_l"], insole_data["insoleAll_r"]
 )
-
 
 plot_heatmap_spatial(insole_spatial_l, insole_spatial_r)
 
