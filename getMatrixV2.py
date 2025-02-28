@@ -1,3 +1,5 @@
+from itertools import chain
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -12,12 +14,21 @@ from scipy.signal import find_peaks, savgol_filter, butter, filtfilt
 from pre import resample_angle
 from torch.utils.data import Dataset, DataLoader
 
+
+def detect_outliers(values):
+    Q1, Q3 = np.percentile(values, [25, 75])
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return lower_bound, upper_bound
+
+
 def segment_insole_data(insole_data):
 
-    toe_region = insole_data[:, :13, :]  # Toe
-    forefoot_region = insole_data[:, 13:31, :]  # Forefoot
-    midfoot_region = insole_data[:, 32:42, :]  #  Midfoot
-    heel_region = insole_data[:, 42:, :]  #  Heel
+    toe_region = insole_data[:, :15, :]  # Toe
+    forefoot_region = insole_data[:, 15:33, :]  # Forefoot
+    midfoot_region = insole_data[:, 33:47, :]  #  Midfoot
+    heel_region = insole_data[:, 47:, :]  #  Heel
     return heel_region, midfoot_region, forefoot_region, toe_region
 
 def butter_lowpass_filter(data, cutoff=8, fs=100, order=4):
@@ -44,14 +55,13 @@ def gait_segmentation(insole, h_th, t_th):
     p_toe = np.mean(toe_region, axis=(1, 2))
     p_forefoot = np.mean(forefoot_region, axis=(1, 2))
 
-    p_heel_filtered = butter_lowpass_filter(p_heel, 8, 75)
-    p_fore_filtered = butter_lowpass_filter(p_forefoot+p_toe, 8, 75)
-
+    p_heel_filtered = butter_lowpass_filter(p_heel, 8, 50)
+    p_fore_filtered = butter_lowpass_filter(p_toe+p_forefoot, 8, 50)
     p_heel_derivative = np.gradient(p_heel_filtered)
     p_fore_derivative = np.gradient(p_fore_filtered)
 
-    hc_indices, _ = find_peaks(p_heel_derivative, height=h_th, distance=10)
-    to_indices, _ = find_peaks(-p_fore_derivative, height=t_th, distance=10)
+    hc_indices, _ = find_peaks(p_heel_derivative, height=h_th, distance=20)
+    to_indices, _ = find_peaks(-p_fore_derivative, height=t_th, distance=20)
 
     return hc_indices, to_indices
 
@@ -84,6 +94,8 @@ def get_gait_parameters_insole2(insole_r, insole_l, t_r, t_l, thresholds):
             'cop_x_l': np.zeros(len(t_l)),
             'cop_y_l': np.zeros(len(t_l)),
             'cont_area_l': np.zeros(len(t_l)),
+            'step_r':[],
+            'step_l':[]
             }
 
     for i in range(len(t_r)):
@@ -125,18 +137,50 @@ def get_gait_parameters_insole2(insole_r, insole_l, t_r, t_l, thresholds):
         if t_r[end] - t_r[start] > strike_th_r:
             continue
         step_off = [o for o in off_r if start <= o <= end]
-        if len(step_off) == 1:
-            gait['step_r'].append({'strike': [start, end], 'off': step_off})
+        gait['step_r'].append({'strike': [start, end], 'off': step_off})
+
+    # outlier detect
+    off_indices = list(chain.from_iterable(step["off"] for step in gait['step_r']))
+    strike_indices = [step["strike"][0] for step in gait['step_r'] if len(step["strike"]) > 0]
+
+    off_values = np.array(gait['foot_trace_r'])[off_indices]
+    strike_values = np.array(gait['foot_trace_r'])[strike_indices]
+    
+    lower_bound_off, upper_bound_off= detect_outliers(off_values)
+    lower_bound_strike, upper_bound_strike = detect_outliers(strike_values)
+    abnormal_off = set(off_indices[i] for i in range(len(off_values))
+                       if off_values[i] < lower_bound_off or off_values[i] > upper_bound_off)
+    abnormal_strike = set(strike_indices[i] for i in range(len(strike_values))
+                          if strike_values[i] < lower_bound_strike or strike_values[i] > upper_bound_strike)
+    filtered_gait_step_r = [step for step in gait['step_r']
+                            if not (set(step["off"]) & abnormal_off or set(step["strike"]) & abnormal_strike)]
+    gait['step_r'] = filtered_gait_step_r
+
 
     for i in range(len(strike_l) - 1):
         start, end = strike_l[i], strike_l[i + 1]
         if t_l[end] - t_l[start] > strike_th_l:
             continue
         step_off = [o for o in off_l if start <= o <= end]
-        if len(step_off) == 1:
-            gait['step_l'].append({'strike': [start, end], 'off': step_off})
+        gait['step_l'].append({'strike': [start, end], 'off': step_off})
+    off_indices = list(chain.from_iterable(step["off"] for step in gait['step_l']))
+    strike_indices = [step["strike"][0] for step in gait['step_l'] if len(step["strike"]) > 0]
 
-    # Cycle duration
+    off_values = np.array(gait['foot_trace_l'])[off_indices]
+    strike_values = np.array(gait['foot_trace_l'])[strike_indices]
+
+    lower_bound_off, upper_bound_off = detect_outliers(off_values)
+    lower_bound_strike, upper_bound_strike = detect_outliers(strike_values)
+    abnormal_off = set(off_indices[i] for i in range(len(off_values))
+                       if off_values[i] < lower_bound_off or off_values[i] > upper_bound_off)
+    abnormal_strike = set(strike_indices[i] for i in range(len(strike_values))
+                          if strike_values[i] < lower_bound_strike or strike_values[i] > upper_bound_strike)
+    filtered_gait_step_l = [step for step in gait['step_l']
+                            if not (set(step["off"]) & abnormal_off or set(step["strike"]) & abnormal_strike)]
+    gait['step_l'] = filtered_gait_step_l
+
+
+    # Temporal parameters
     gait['cycle_dur_l'] = np.zeros((len(gait['step_l'])))
     gait['swing_dur_l']= np.zeros((len(gait['step_l'])))
     gait['stance_dur_l'] = np.zeros((len(gait['step_l'])))
@@ -168,5 +212,8 @@ def get_gait_parameters_insole2(insole_r, insole_l, t_r, t_l, thresholds):
 
     gait['swing_asym'] = np.abs((np.mean(gait['swing_phase_l']) - np.mean(gait['swing_phase_r']))) / (
             0.5 * (np.mean(gait['swing_phase_l']) + np.mean(gait['swing_phase_r'])))
+
+    gait['cadence_asym'] = np.abs((np.mean(gait['cadence_l']) - np.mean(gait['cadence_r']))) / (
+            0.5 * (np.mean(gait['cadence_l']) + np.mean(gait['cadence_r'])))
 
     return gait
