@@ -2,6 +2,7 @@ import numpy as np
 from pathlib import Path
 import scipy.io as sio
 import scipy
+from scipy.signal import find_peaks, savgol_filter, butter, filtfilt
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -14,11 +15,11 @@ from visualization import plot_heatmap_spatial
 # insole_data_path = Path("data/112024")
 # insole_data = sio.loadmat(insole_data_path / "gait_recording_112024_walk4.mat")
 
-# insole_data_path = Path("data/080624")
-# insole_data = sio.loadmat(insole_data_path / "gait_recording_080624_walk4.mat")
+insole_data_path = Path("data/080624")
+insole_data = sio.loadmat(insole_data_path / "gait_recording_080624_walk4.mat")
 
-insole_data_path = Path("data/022425")
-insole_data = sio.loadmat(insole_data_path / "gait_recording_022425_walk2.mat")
+# insole_data_path = Path("data/022425")
+# insole_data = sio.loadmat(insole_data_path / "gait_recording_022425_walk2.mat")
 
 
 def convert_insole_spatial(
@@ -288,6 +289,193 @@ def plot_heatmap_spatial(
         frames=range(200, 1200),
         # blit=True,
         # repeat=True,
+        interval=10,
+    )
+    plt.show()
+
+    if save_anim:
+        writervideo = animation.FFMpegWriter(fps=30)
+        # ani.save("seg_walking.gif", writer=writervideo)
+
+
+plot_heatmap_spatial(insole_spatial_l, insole_spatial_r, save_anim=False)
+
+
+def segment_insole_data(
+    insole_spatial,
+    height_valleys: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    toe_region = insole_spatial[:, : height_valleys[0], :]  # Toe
+    ball_region = insole_spatial[
+        :, height_valleys[0] : height_valleys[1], :
+    ]  #  Midfoot
+    heel_region = insole_spatial[:, height_valleys[1] :, :]  #  Heel
+    return toe_region, ball_region, heel_region
+
+
+toe_region_l, ball_region_l, heel_region_l = segment_insole_data(
+    insole_spatial_l,
+    height_valleys_l,
+)
+
+toe_region_r, ball_region_r, heel_region_r = segment_insole_data(
+    insole_spatial_r,
+    height_valleys_r,
+)
+
+
+def butter_lowpass_filter(data, cutoff=8, fs=100, order=4):
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype="low", analog=False)
+    return filtfilt(b, a, data)
+
+
+def gait_segmentation(
+    toe_region, ball_region, heel_region, h_th, t_th, show_plot: bool
+):
+    p_toe = np.mean(toe_region, axis=(1, 2))
+    p_ball = np.mean(ball_region, axis=(1, 2))
+    p_heel = np.mean(heel_region, axis=(1, 2))
+
+    p_heel_filtered = butter_lowpass_filter(p_heel, 8, 75)
+    p_fore_filtered = butter_lowpass_filter(p_ball + p_toe, 8, 75)
+
+    p_heel_derivative = np.gradient(p_heel_filtered)
+    p_fore_derivative = np.gradient(p_fore_filtered)
+
+    hc_indices, _ = find_peaks(p_heel_derivative)
+    to_indices, _ = find_peaks(-p_fore_derivative)
+
+    hc_indices, _ = find_peaks(p_heel_derivative, height=h_th, distance=10)
+    to_indices, _ = find_peaks(-p_fore_derivative, height=t_th, distance=10)
+
+    if show_plot:
+        plt.plot(p_heel_derivative, label="heel derivative")
+        plt.plot(
+            hc_indices,
+            p_heel_derivative[hc_indices],
+            "o",
+        )
+        plt.show()
+
+        plt.plot(-p_fore_derivative, label="fore derivative")
+        plt.plot(
+            to_indices,
+            -p_fore_derivative[to_indices],
+            "o",
+        )
+        plt.show()
+
+    return hc_indices, to_indices
+
+
+hc_indices_l, to_indices_l = gait_segmentation(
+    toe_region_l, ball_region_l, heel_region_l, 20, 20, show_plot=True
+)
+hc_indices_r, to_indices_r = gait_segmentation(
+    toe_region_r, ball_region_r, heel_region_r, 20, 20, show_plot=True
+)
+
+to_mask_l = scipy.ndimage.maximum_filter1d(
+    np.isin(np.arange(insole_spatial_l.shape[0]), to_indices_l), 20
+)
+to_mask_r = scipy.ndimage.maximum_filter1d(
+    np.isin(np.arange(insole_spatial_r.shape[0]), to_indices_r), 20
+)
+
+hc_mask_l = scipy.ndimage.maximum_filter1d(
+    np.isin(np.arange(insole_spatial_l.shape[0]), hc_indices_l), 20
+)
+hc_mask_r = scipy.ndimage.maximum_filter1d(
+    np.isin(np.arange(insole_spatial_r.shape[0]), hc_indices_r), 20
+)
+
+
+def plot_heatmap_spatial(
+    insole_spatial_l: np.ndarray, insole_spatial_r: np.ndarray, save_anim: bool
+) -> None:
+    fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(12, 6))
+
+    img_l = ax_l.imshow(
+        np.zeros((64, 16)),
+        vmin=np.min(insole_spatial_l),
+        vmax=np.max(insole_spatial_l),
+        interpolation="nearest",
+    )
+    img_r = ax_r.imshow(
+        np.zeros((64, 16)),
+        vmin=np.min(insole_spatial_r),
+        vmax=np.max(insole_spatial_r),
+        interpolation="nearest",
+    )
+
+    ax_l.set_title("Left Heatmap")
+    ax_r.set_title("Right Heatmap")
+    plt.colorbar(img_l, ax=ax_l)
+    plt.colorbar(img_r, ax=ax_r)
+
+    hlines_l = [
+        ax_l.axhline(height_valley_l, color="r", linestyle="--")
+        for height_valley_l in height_valleys_l
+    ]
+
+    hlines_r = [
+        ax_r.axhline(height_valley_r, color="r", linestyle="--")
+        for height_valley_r in height_valleys_r
+    ]
+
+    vlines_l = [
+        ax_l.vlines(
+            width_valley_l,
+            height_valleys_l[i - 1] if i > 0 else 0,
+            height_valley_l,
+            color="r",
+            linestyle="--",
+        )
+        for i, (height_valley_l, width_valley_l) in enumerate(
+            zip(height_valleys_l, width_valleys_l)
+        )
+    ]
+
+    vlines_r = [
+        ax_r.vlines(
+            width_valley_r,
+            height_valleys_r[i - 1] if i > 0 else 0,
+            height_valley_r,
+            color="r",
+            linestyle="--",
+        )
+        for i, (height_valley_r, width_valley_r) in enumerate(
+            zip(height_valleys_r, width_valleys_r)
+        )
+    ]
+
+    FRAME_OFFSET = 200
+
+    def update(frame):
+        frame += FRAME_OFFSET
+        img_l.set_array(insole_spatial_l[frame])
+        img_r.set_array(insole_spatial_r[frame])
+
+        ax_l.set_ylabel(
+            "Toe Off" if to_mask_l[frame] else "Heel Strike" if hc_mask_l[frame] else ""
+        )
+        ax_r.set_ylabel(
+            "Toe Off" if to_mask_r[frame] else "Heel Strike" if hc_mask_r[frame] else ""
+        )
+
+        return (img_l, img_r, *hlines_l, *vlines_l, *hlines_r, *vlines_r, ax_l, ax_r)
+
+    ani = FuncAnimation(
+        fig,
+        update,
+        frames=range(
+            FRAME_OFFSET,
+            max(len(insole_spatial_l), len(insole_spatial_r)) - FRAME_OFFSET,
+        ),
+        # blit=True,
+        repeat=True,
         interval=10,
     )
     plt.show()
