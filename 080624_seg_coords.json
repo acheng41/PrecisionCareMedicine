@@ -1,0 +1,135 @@
+[
+  {
+    "filename": "gait_recording_080624_walk.mat",
+    "height_valleys_l": [
+      12,
+      31
+    ],
+    "width_valleys_l": [
+      7,
+      10
+    ],
+    "height_valleys_r": [
+      12,
+      32
+    ],
+    "width_valleys_r": [
+      8,
+      4
+    ]
+  },
+  {
+    "filename": "gait_recording_080624_walk2.mat",
+    "height_valleys_l": [
+      12,
+      31
+    ],
+    "width_valleys_l": [
+      7,
+      11
+    ],
+    "height_valleys_r": [
+      12,
+      32
+    ],
+    "width_valleys_r": [
+      8,
+      4
+    ]
+  },
+  {
+    "filename": "gait_recording_080624_walk3.mat",
+    "height_valleys_l": [
+      11,
+      31
+    ],
+    "width_valleys_l": [
+      7,
+      11
+    ],
+    "height_valleys_r": [
+      9,
+      32
+    ],
+    "width_valleys_r": [
+      8,
+      4
+    ]
+  },
+  {
+    "filename": "gait_recording_080624_walk4.mat",
+    "height_valleys_l": [
+      10,
+      31
+    ],
+    "width_valleys_l": [
+      7,
+      11
+    ],
+    "height_valleys_r": [
+      8,
+      32
+    ],
+    "width_valleys_r": [
+      7,
+      4
+    ]
+  },
+  {
+    "filename": "gait_recording_080624_walk5.mat",
+    "height_valleys_l": [
+      9,
+      27
+    ],
+    "width_valleys_l": [
+      7,
+      11
+    ],
+    "height_valleys_r": [
+      7,
+      32
+    ],
+    "width_valleys_r": [
+      7,
+      4
+    ]
+  },
+  {
+    "filename": "gait_recording_080624_walk6.mat",
+    "height_valleys_l": [
+      8,
+      26
+    ],
+    "width_valleys_l": [
+      7,
+      11
+    ],
+    "height_valleys_r": [
+      8,
+      32
+    ],
+    "width_valleys_r": [
+      7,
+      4
+    ]
+  },
+  {
+    "filename": "gait_recording_080624_walk7.mat",
+    "height_valleys_l": [
+      8,
+      26
+    ],
+    "width_valleys_l": [
+      7,
+      10
+    ],
+    "height_valleys_r": [
+      9,
+      32
+    ],
+    "width_valleys_r": [
+      7,
+      4
+    ]
+  }
+]
