@@ -123,10 +123,3 @@ The following parameters for foot region division are currently hardcoded within
 * **6-Region Division (Medial-Lateral)**:
     * Uses the same `54%` and `29%` proportional lines for anterior-posterior division.
     * The medial-lateral division is achieved using a dynamic midline calculated for each row of the aggregated foot mask, representing the center of the foot's width at that specific row.
-
-## Usage / Running the Script
-
-1.  **Ensure all required libraries are installed**: `pandas`, `numpy`, `matplotlib`, `scipy`, `scikit-image`, `IPython`.
-2.  **Modify Input/Output Paths**: Update the hardcoded path to your `.mat` data file and the desired output paths for CSV files within the script.
-3.  **Adjust Tunable Parameters**: Modify values in the `tunable_params` dictionary and any hardcoded region division parameters as needed for your specific dataset and analysis goals.
-4.  **Execute the Script**: Run the Python script in an environment that supports Matplotlib for visualizations (e.g., a Jupyter Notebook for inline animations and plots, or a standard Python interpreter).
